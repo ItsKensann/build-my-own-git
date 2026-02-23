@@ -119,14 +119,44 @@ def repo_create(path):
 
     return repo
 
+def repo_find(path=".", required=True):
+    """"Function to recursively find the root of the directory"""
+    path = os.path.realpath(path)
+
+    # We will know if we have reached the root directory if the path contains a .git folder
+    if os.path.isdir(os.path.join(path, ".git")):
+        return GitRepository(path)
+
+    # If haven't returned, go up one level to parent
+    parent = os.path.realpath(os.path.join(path, ".."))
+
+    if parent == path:
+        # if parent==path, then path is root
+        if required:
+            raise Exception("No git directory.")
+        else:
+            return None
+            # return for this base case
+    
+    return repo_find(path, required)
+
+# Bridge functions
+def cmd_init(args):
+    repo_create(args.path)
 
 def main(argv=sys.argv[1:]):
     argparser = argparse.ArgumentParser(description="Program")
-    argsubparsers = argparser.add_subparsers(title="Commands", dest="command")
+    # Initialize subparsers
+    argsubparsers = argparser.add_subparsers(title="Commands", dest="command") # Tells python to save the word after the program name
     argsubparsers.required = True # Ensures user must provid a command
 
+    # Add the inidividual subcommands
+    # Git init
+    argsp = argsubparsers.add_parser("init", help="Initialize a new, empty repository")
+    argsp.add_argument("path", metavar="directory", nargs="?", default=".", help="Where to create the repository.")
 
     args = argparser.parse_args(argv)
+
     match args.command:
         case "add"          : cmd_add(args)
         case "cat-file"     : cmd_cat_file(args)
