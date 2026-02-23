@@ -1,0 +1,4 @@
+#!/usr/bin/env py
+
+import libwyag
+libwyag.main()
