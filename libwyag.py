@@ -250,7 +250,70 @@ def hash_object(fd, fmt, repo=None):
 
     return object_write(obj, repo)
 
-# -- 
+# -- commits
+def kvlm_parse(raw, start=0, dct=None):
+    """
+    Parser initially for commit object, but tags also share the same format
+    Transforms a raw blob of bytes into a structured python dictionary
+    Key-Value List with Message
+    """
+
+    if not dct:
+        dct = dict()
+
+    # Search for the next space and the next newline
+    space = raw.find(b" ", start)
+    new_line = raw.find(b"\n", start)
+    # Everything left is the commit message
+    if (space < 0) or (new_line < space):
+        assert new_line == start
+        dct[None] = raw[start+1:]
+        return dct
+    
+    # read a key-value pair and recurse for the next
+    key = raw[start:space]
+
+    # Find the end of the value
+    end = start
+    while True:
+        end = raw.find(b"\n", end+1)
+        if raw[end+1] != ord(" "):
+            break
+
+    value = raw[space+1:end].replace(b"\n ", b"\n")
+    
+    # Don't overwrite existing data contents
+    if key in dct:
+        if type(dct[key]) == list:
+            dct[key].append(value)
+        else:
+            dct[key] = [ dct[key], value ]
+    else:
+        dct[key] = value
+
+    return kvlm_parse(raw, start=end+1, dct=dct)
+
+def kvlm_serialize(kvlm):
+    """Inverse of kvlm parse, takes structured dictionary and turns it back into raw byte string"""
+    ret = b""
+
+    # Output fields
+    for key in kvlm.keys():
+        # Skip the message
+        if key == None:
+            continue
+        val = kvlm[key]
+        # Normalize into a list
+        if type(val) != list:
+            val = [ val ]
+
+        for v in val:
+            ret += key + b" " + (v.replace(b'\n', b'\n ')) + b'\n'
+    
+    # Append the message
+    ret += b'\n' + kvlm[None]
+
+    return ret
 
 # Bridge functions
 def cmd_init(args):
